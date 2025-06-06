@@ -1,63 +1,67 @@
-from sklearn.linear_model import LogisticRegression as logReg
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.feature_extraction.text import TfidfVectorizer
-import time
+import os
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import classification_report, confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-df = pd.read_csv(r"C:\Users\hanna\Downloads\homework_excuses.csv")
+# Automatically find the first .csv file in the current directory
+csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
+if not csv_files:
+    raise FileNotFoundError("No CSV file found in the current directory.")
+csv_path = csv_files[0]
 
-# Step 2: Encode string labels into integers
+# Load the dataset
+df = pd.read_csv(csv_path)
+
+# Ensure it has the required columns
+if 'text' not in df.columns or 'label' not in df.columns:
+    raise ValueError("CSV file must contain 'text' and 'label' columns.")
+
+# Encode labels
 le = LabelEncoder()
-y_log = le.fit_transform(df['label'])  # y_log will be your label array
+y = le.fit_transform(df['label'])
 
+# TF-IDF vectorization of text
 vectorizer = TfidfVectorizer()
-X_log = vectorizer.fit_transform(df['text'])  # X_log is your feature matrix
+X = vectorizer.fit_transform(df['text'])
 
-X_train_log, X_test_log, y_train_log, y_test_log = train_test_split(X_log, y_log, test_size=0.2, random_state=42)
+# Train/test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-start = time.time() #calculate training time
-logreg = logReg(max_iter=5000) #create instance of scikits logistic regression
-logreg.fit(X_train_log, y_train_log) #train model on trainig set
-time_sk_logreg = time.time() - start
+# Train Logistic Regression model
+model = LogisticRegression(max_iter=5000)
+model.fit(X_train, y_train)
 
-#weights_sk_logreg = np.concatenate(([logreg.intercept_[0]], logreg.coef_[0])) #calculate weights
-predictions_sk_logreg = logreg.predict(X_test_log) #uses trained model to make predictions
-accuracy_sk_logreg = accuracy_score(y_test_log, predictions_sk_logreg) #calculate mse using true values and predictions
-
-# Print classification report
+# Evaluate model
+y_pred = model.predict(X_test)
 print("\nClassification Report:")
-print(classification_report(y_test_log, predictions_sk_logreg, target_names=le.classes_))
-
-# Confusion matrix
-cm = confusion_matrix(y_test_log, predictions_sk_logreg)
+print(classification_report(y_test, y_pred, target_names=le.classes_))
 
 # Plot confusion matrix
+cm = confusion_matrix(y_test, y_pred)
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt='d', xticklabels=le.classes_, yticklabels=le.classes_, cmap='Blues')
-plt.xlabel("Predicted Label")
-plt.ylabel("True Label")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
 plt.title("Confusion Matrix")
 plt.tight_layout()
 plt.show()
 
+# Interactive classification loop
 while True:
-    new_excuse = input("\nEnter your homework excuse (or type 'exit' to quit): ")
-    if new_excuse.lower() == "exit":
+    user_input = input("\nEnter your homework excuse (or type 'exit' to quit): ")
+    if user_input.lower() == 'exit':
         break
-
-    # Vectorize and predict
-    X_new = vectorizer.transform([new_excuse])
-    prediction = logreg.predict(X_new)
+    X_new = vectorizer.transform([user_input])
+    prediction = model.predict(X_new)
     predicted_label = le.inverse_transform(prediction)[0]
+    probs = model.predict_proba(X_new)[0]
 
-    # Show probability scores for all classes
-    probs = logreg.predict_proba(X_new)[0]
     print(f"\nPrediction: {predicted_label}")
-    print("Confidence scores for each category:")
+    print("Confidence scores:")
     for label, prob in zip(le.classes_, probs):
         print(f"  {label}: {prob:.4f}")
