@@ -84,6 +84,40 @@ After each retraining, a heatmap is displayed to show how well the model is perf
  - `vectorizer.pkl`: Trained TF-IDF vectorizer
  - Appended `your_dataset.csv`: With new labeled examples
 
+## Evaluation Script: evaluator.py
+
+The evaluator.py script provides a detailed performance evaluation of the Excusinator model. It is a standalone, non-interactive script that automatically:
+
+    Loads the trained logistic regression model (model_weights.pkl) and TF-IDF vectorizer (vectorizer.pkl)
+
+    Loads the dataset from the first .csv file in the directory
+
+    Splits the data into training and testing sets (80/20)
+
+    Outputs key evaluation metrics:
+
+        Accuracy
+
+        Precision, Recall, F1-score (per class)
+
+        Confusion Matrix (displayed as a heatmap)
+
+### How to Use:
+
+Make sure your working directory contains:
+
+    A labeled CSV file (e.g., excuses.csv)
+
+    model_weights.pkl (trained model)
+
+    vectorizer.pkl (TF-IDF vectorizer)
+
+Then run:
+```bash
+python evaluator.py
+```
+No user input is required. The script prints all metrics to the terminal and shows a visual confusion matrix for easy analysis. This helps you assess how well Excusinator performs across different excuse categories.
+
 ## Notes
 
  - The program retrains **every time a new example is added**
