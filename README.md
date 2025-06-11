@@ -99,5 +99,5 @@ After each retraining, a heatmap is displayed to show how well the model is perf
 ## Author
 
 Runee Zubaida Zahid
-Jeong Hanna
+Jung Hannah
 Ahmed Ishraq
