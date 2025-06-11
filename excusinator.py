@@ -27,6 +27,8 @@ def retrain_model():
 
     le = LabelEncoder()
     y = le.fit_transform(df['label'])
+
+    #-------------------Comment out if loading weights------------------------
     vectorizer = TfidfVectorizer()
     X = vectorizer.fit_transform(df['text'])
 
@@ -36,6 +38,15 @@ def retrain_model():
 
     joblib.dump(model, "model_weights.pkl")
     joblib.dump(vectorizer, "vectorizer.pkl")
+
+    #----------------------------------------------------------------------
+
+    #Load weights
+    #Uncomment this section when loading
+    #model = joblib.load("model_weights.pkl")
+    #vectorizer = joblib.load("vectorizer.pkl")
+    #X = vectorizer.fit_transform(df['text'])
+    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Show confusion matrix
     y_pred = model.predict(X_test)
@@ -88,10 +99,10 @@ class ExcuseClassifierApp:
             messagebox.showwarning("Input Required", "Please enter a homework excuse.")
             return
 
-        X_new = vectorizer.transform([self.current_text])
-        prediction = model.predict(X_new)
-        probs = model.predict_proba(X_new)[0]
-        self.predicted_label = le.inverse_transform(prediction)[0]
+        X_new = vectorizer.transform([self.current_text]) #transform input using vectorizer
+        prediction = model.predict(X_new) #make prediction
+        probs = model.predict_proba(X_new)[0] #gets confidence score for each label
+        self.predicted_label = le.inverse_transform(prediction)[0] #convert number back to label (string)
 
         self.result_label.config(text=f"Prediction: {self.predicted_label}")
         self.confidence_box.config(state='normal')
