@@ -1,84 +1,148 @@
+import os
+import pandas as pd
+import joblib
+import tkinter as tk
+from tkinter import ttk, messagebox
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics import classification_report, confusion_matrix
-import seaborn as sns
-import os
-import pandas as pd
-import joblib
+from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Automatically find the first .csv file in the current directory
+# --- Load CSV File ---
 csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
 if not csv_files:
-    raise FileNotFoundError("No CSV file found in the current directory.")
+    raise FileNotFoundError("No CSV file found in this directory.")
 csv_path = csv_files[0]
 
-#Load the dataset
-df = pd.read_csv(csv_path)
+# --- Initial Training ---
+def retrain_model():
+    global df, model, vectorizer, le
 
-#Ensure it has the required columns
-if 'text' not in df.columns or 'label' not in df.columns:
-    raise ValueError("CSV file must contain 'text' and 'label' columns.")
+    df = pd.read_csv(csv_path)
+    if 'text' not in df.columns or 'label' not in df.columns:
+        raise ValueError("CSV must have 'text' and 'label' columns.")
 
-#Encode labels into integers using sklearn
-le = LabelEncoder()
-y = le.fit_transform(df['label'])
+    le = LabelEncoder()
+    y = le.fit_transform(df['label'])
+    vectorizer = TfidfVectorizer()
+    X = vectorizer.fit_transform(df['text'])
 
-#-------------If loading weights, comment out this section--------------------
-#TF-IDF vectorization of text
-vectorizer = TfidfVectorizer()
-X = vectorizer.fit_transform(df['text'])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = LogisticRegression(max_iter=5000, class_weight='balanced')
+    model.fit(X_train, y_train)
 
-#Train/test split into 80% training 20% testing
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    joblib.dump(model, "model_weights.pkl")
+    joblib.dump(vectorizer, "vectorizer.pkl")
 
-#Train Logistic Regression model
-model = LogisticRegression(max_iter=5000, class_weight='balanced')
-model.fit(X_train, y_train)
+    # Show confusion matrix
+    y_pred = model.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap="Blues", xticklabels=le.classes_, yticklabels=le.classes_)
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title("Confusion Matrix After Retraining")
+    plt.tight_layout()
+    plt.show()
 
-#Save weights
-joblib.dump(model, "model_weights.pkl")
-joblib.dump(vectorizer, "vectorizer.pkl")
+# Train the model initially
+retrain_model()
 
-#----------------------------------------------------------------------------
+# --- initial interface ---
+class ExcuseClassifierApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Excusinator")
+        self.root.geometry("600x500")
+        self.current_text = ""
+        self.predicted_label = ""
 
-#Load weights
-#Uncomment this section when loading weights
-#model = joblib.load("model_weights.pkl")
-#vectorizer = joblib.load("vectorizer.pkl")
-#X = vectorizer.fit_transform(df['text'])
-#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        self.label_frame = ttk.LabelFrame(root, text="Enter Your Homework Excuse:")
+        self.label_frame.pack(fill="x", padx=20, pady=10)
 
-#Evaluate model
-y_pred = model.predict(X_test)
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred, target_names=le.classes_)) #use Scikit learns classification report metrics
+        self.text_input = tk.Text(self.label_frame, height=4)
+        self.text_input.pack(fill="x", padx=10, pady=5)
 
-#Plot confusion matrix
-cm = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(8, 6))
-sns.heatmap(cm, annot=True, fmt='d', xticklabels=le.classes_, yticklabels=le.classes_, cmap='Blues') #use seaborn heatmat
-plt.xlabel("Predicted")
-plt.ylabel("Actual")
-plt.title("Confusion Matrix")
-plt.tight_layout()
-plt.show()
+        self.predict_button = ttk.Button(root, text="Predict", command=self.predict)
+        self.predict_button.pack(pady=10)
 
-#Loop to have user input new excuses and print prediction and confidence scores
-while True:
-    user_input = input("\nEnter your homework excuse (type 'exit' to quit): ")
-    if user_input.lower() == 'exit':
-        break
+        self.result_label = ttk.Label(root, text="", font=("Arial", 12))
+        self.result_label.pack()
 
-    X_new = vectorizer.transform([user_input]) #transform input using vectorizer
-    prediction = model.predict(X_new)          #make prediction
-    predicted_label = le.inverse_transform(prediction)[0] #convert number back to label (string)
+        self.confidence_box = tk.Text(root, height=6, state='disabled')
+        self.confidence_box.pack(pady=5)
 
-    probs = model.predict_proba(X_new)[0] #gets confidence score for each label
+        self.feedback_frame = ttk.Frame(root)
+        self.correct_button = ttk.Button(self.feedback_frame, text="✅ Correct", command=self.save_prediction)
+        self.incorrect_button = ttk.Button(self.feedback_frame, text="❌ Incorrect", command=self.show_dropdown)
 
-    print(f"\nPrediction: {predicted_label}")
-    print("Confidence scores:")
-    for label, prob in zip(le.classes_, probs): #print confidence scores for each label
-        print(f"{label:<10}:{prob:>7.4f}")
+        self.dropdown = ttk.Combobox(root, state='disabled')
+        self.submit_correction = ttk.Button(root, text="Submit Correction", command=self.save_correction)
+# --- require input ---
+    def predict(self):
+        self.current_text = self.text_input.get("1.0", "end").strip()
+        if not self.current_text:
+            messagebox.showwarning("Input Required", "Please enter a homework excuse.")
+            return
+
+        X_new = vectorizer.transform([self.current_text])
+        prediction = model.predict(X_new)
+        probs = model.predict_proba(X_new)[0]
+        self.predicted_label = le.inverse_transform(prediction)[0]
+
+        self.result_label.config(text=f"Prediction: {self.predicted_label}")
+        self.confidence_box.config(state='normal')
+        self.confidence_box.delete("1.0", "end")
+        for label, prob in zip(le.classes_, probs):
+            self.confidence_box.insert("end", f"{label:<10}: {prob:.4f}\n")
+        self.confidence_box.config(state='disabled')
+
+        self.feedback_frame.pack(pady=5)
+        self.correct_button.pack(side='left', padx=10)
+        self.incorrect_button.pack(side='right', padx=10)
+# --- saves the prediction in the database ---
+    def save_prediction(self):
+        new_row = pd.DataFrame([[self.current_text, self.predicted_label]], columns=['text', 'label'])
+        new_row.to_csv(csv_path, mode='a', header=False, index=False)
+        retrain_model()
+        messagebox.showinfo("Saved", f"Saved as '{self.predicted_label}' and model retrained.")
+        self.reset()
+# --- dropdown list of labels ---
+    def show_dropdown(self):
+        self.dropdown.config(state='readonly')
+        self.dropdown['values'] = le.classes_.tolist()
+        self.dropdown.set("Select correct label")
+        self.dropdown.pack(pady=10)
+        self.submit_correction.pack()
+# --- validate label / prevent invalid or new label input---
+    def save_correction(self):
+        corrected = self.dropdown.get()
+        if corrected not in le.classes_:
+            messagebox.showwarning("Invalid", "Please choose a valid label.")
+            return
+        new_row = pd.DataFrame([[self.current_text, corrected]], columns=['text', 'label'])
+        new_row.to_csv(csv_path, mode='a', header=False, index=False)
+        retrain_model()
+        messagebox.showinfo("Saved", f"Saved as '{corrected}' and model retrained.")
+        self.reset()
+
+    def reset(self):
+        self.text_input.delete("1.0", "end")
+        self.result_label.config(text="")
+        self.confidence_box.config(state='normal')
+        self.confidence_box.delete("1.0", "end")
+        self.confidence_box.config(state='disabled')
+        self.feedback_frame.pack_forget()
+        self.dropdown.pack_forget()
+        self.submit_correction.pack_forget()
+        self.current_text = ""
+        self.predicted_label = ""
+
+# Launch GUI
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ExcuseClassifierApp(root)
+    root.mainloop()
