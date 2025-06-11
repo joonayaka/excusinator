@@ -14,6 +14,8 @@ This project is a machine learning-based excuse classifier that predicts what ki
  - Saves new examples to the dataset
  - **Automatically retrains** the model on each new input
  - Displays a **confusion matrix** after every retraining
+ - Extra: save weights for the trained model and vectorizer
+ - Extra: load previously saved weights if needed
 
 ## Dataset Format
 
