@@ -66,7 +66,7 @@ plt.title("Confusion Matrix")
 plt.tight_layout()
 plt.show()
 
-#Have user input new excuses. Print prediction and confidence scores
+#Loop to have user input new excuses and print prediction and confidence scores
 while True:
     user_input = input("\nEnter your homework excuse (type 'exit' to quit): ")
     if user_input.lower() == 'exit':
